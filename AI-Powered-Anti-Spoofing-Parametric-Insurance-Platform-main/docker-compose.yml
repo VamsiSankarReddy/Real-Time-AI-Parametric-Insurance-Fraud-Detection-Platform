@@ -1,0 +1,59 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: fraud_mongodb
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: fraud_ml_service
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./ml-service:/app
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fraud_backend
+    ports:
+      - '4000:4000'
+    env_file:
+      - ./backend/.env.example
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/fraud_detection
+      ML_SERVICE_URL: http://ml-service:8000
+      FRONTEND_ORIGIN: http://localhost:5173
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - mongodb
+      - ml-service
+      - redis
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fraud_frontend
+    ports:
+      - '5173:5173'
+    environment:
+      VITE_BACKEND_URL: http://localhost:4000/api
+      VITE_SOCKET_URL: http://localhost:4000
+    depends_on:
+      - backend
+
+  redis:
+    image: redis:7
+    container_name: fraud_redis
+    ports:
+      - '6379:6379'
+
+volumes:
+  mongo_data:
